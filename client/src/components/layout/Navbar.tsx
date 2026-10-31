@@ -6,14 +6,15 @@ import {
   GraduationCap,
   Sparkles,
   Trophy,
-  User,
-  Settings,
   Layers,
-  Volume2,
-  VolumeX,
+  Search,
+  HelpCircle,
+  Globe,
+  SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
-  Crown,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { sound } from '../../utils/audio';
 
@@ -33,57 +34,48 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTheme, onThemeChange }) =
   };
 
   const navLinks = [
-    { to: '/', label: 'Play', icon: Swords },
-    { to: '/puzzles', label: 'Puzzles', icon: Puzzle },
-    { to: '/review', label: 'Game Review', icon: Sparkles, badge: 'FREE' },
-    { to: '/variants', label: 'Variants', icon: Layers },
-    { to: '/learn', label: 'Learn', icon: GraduationCap },
-    { to: '/leaderboard', label: 'Leaderboard', icon: Trophy },
-    { to: '/profile', label: 'Profile', icon: User },
-  ];
-
-  const themes = [
-    { id: 'green', label: 'Green' },
-    { id: 'wood', label: 'Wood' },
-    { id: 'dark', label: 'Dark' },
-    { id: 'glass', label: 'Glass' },
+    { to: '/play', label: 'Play', icon: Swords, color: 'text-[#81b64c]' },
+    { to: '/puzzles', label: 'Puzzles', icon: Puzzle, color: 'text-amber-400' },
+    { to: '/learn', label: 'Learn', icon: GraduationCap, color: 'text-cyan-400' },
+    { to: '/analysis', label: 'Analysis', icon: SlidersHorizontal, color: 'text-blue-400' },
+    { to: '/review', label: 'Game Review', icon: Sparkles, color: 'text-[#1baca6]', badge: 'FREE' },
+    { to: '/variants', label: 'Variants', icon: Layers, color: 'text-purple-400' },
+    { to: '/leaderboard', label: 'Leaderboard', icon: Trophy, color: 'text-yellow-400' },
   ];
 
   return (
     <aside
-      className={`hidden md:flex flex-col justify-between bg-chess-sidebar border-r border-chess-border select-none transition-all duration-300 z-30 ${
-        collapsed ? 'w-20' : 'w-60'
+      className={`hidden md:flex flex-col justify-between bg-[#262421] border-r border-[#3d3b38] select-none transition-all duration-300 z-30 ${
+        collapsed ? 'w-18' : 'w-56'
       } h-screen sticky top-0`}
     >
       <div>
-        {/* Header / Logo */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-chess-border">
-          <NavLink to="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-lg bg-chess-green flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-              <Crown className="w-6 h-6 text-white" />
+        {/* Header / Logo matching Chess.com */}
+        <div className="h-16 flex items-center justify-between px-3.5 border-b border-[#3d3b38]">
+          <NavLink to="/" className="flex items-center gap-2.5 group">
+            {/* Iconic Green Pawn / Crown logo */}
+            <div className="w-8 h-8 rounded-lg bg-[#81b64c] flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white">
+                <path d="M12 2a3 3 0 0 0-3 3c0 .72.26 1.38.69 1.9A3.99 3.99 0 0 0 7 10.5c0 1.05.4 2 1.05 2.73A6.98 6.98 0 0 0 5 19v1a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a6.98 6.98 0 0 0-3.05-5.77A3.98 3.98 0 0 0 17 10.5a3.99 3.99 0 0 0-2.69-3.6A3 3 0 0 0 12 2z" />
+              </svg>
             </div>
             {!collapsed && (
-              <div>
-                <span className="font-extrabold text-xl tracking-tight text-white block leading-none">
-                  Open<span className="text-chess-green">Chess</span>
-                </span>
-                <span className="text-[10px] text-zinc-400 font-semibold tracking-wider uppercase">
-                  100% Free · No Limits
-                </span>
-              </div>
+              <span className="font-black text-xl tracking-tight text-white block leading-none">
+                Chess<span className="text-[#81b64c]">.com</span>
+              </span>
             )}
           </NavLink>
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="text-zinc-400 hover:text-white p-1 rounded-md hover:bg-chess-card"
-            title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+            className="text-zinc-400 hover:text-white p-1 rounded hover:bg-[#302e2b]"
+            title={collapsed ? 'Expand' : 'Collapse'}
           >
-            {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
         </div>
 
-        {/* Navigation items */}
-        <nav className="p-3 space-y-1">
+        {/* Navigation list */}
+        <nav className="p-2 space-y-1">
           {navLinks.map((item) => {
             const Icon = item.icon;
             return (
@@ -91,19 +83,19 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTheme, onThemeChange }) =
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `flex items-center gap-3.5 px-3 py-3 rounded-lg font-semibold text-sm transition-colors ${
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg font-bold text-sm transition-colors ${
                     isActive
-                      ? 'bg-chess-card text-white border-l-4 border-chess-green pl-2'
-                      : 'text-zinc-400 hover:text-white hover:bg-chess-card/50'
+                      ? 'bg-[#21201d] text-white border-l-4 border-[#81b64c] pl-2'
+                      : 'text-[#9e9c98] hover:text-white hover:bg-[#302e2b]'
                   } ${collapsed ? 'justify-center' : ''}`
                 }
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
+                <Icon className={`w-5 h-5 flex-shrink-0 ${item.color}`} />
                 {!collapsed && (
                   <span className="flex-1 flex items-center justify-between">
-                    {item.label}
+                    <span>{item.label}</span>
                     {item.badge && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-chess-green/20 text-chess-green border border-chess-green/30">
+                      <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-[#81b64c] text-zinc-950">
                         {item.badge}
                       </span>
                     )}
@@ -115,52 +107,55 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTheme, onThemeChange }) =
         </nav>
       </div>
 
-      {/* Footer controls: theme selector & sound */}
-      <div className="p-3 border-t border-chess-border space-y-2">
-        {!collapsed && (
-          <div className="bg-chess-card/60 rounded-lg p-2.5 space-y-2">
-            <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
-              <span>Theme</span>
-              <span className="capitalize text-zinc-300">{currentTheme}</span>
+      {/* Bottom section matching Chess.com Screenshot */}
+      <div className="p-3 border-t border-[#3d3b38] space-y-2">
+        {!collapsed ? (
+          <>
+            {/* Search */}
+            <button
+              onClick={() => {}}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-[#9e9c98] hover:text-white hover:bg-[#302e2b] rounded-lg transition-colors"
+            >
+              <Search size={16} />
+              <span>Search</span>
+            </button>
+
+            {/* Sign Up Green Button from Screenshot */}
+            <button
+              onClick={() => {}}
+              className="w-full py-2 px-3 bg-[#81b64c] hover:bg-[#a3d160] active:bg-[#6f9c3f] text-white font-extrabold text-sm rounded-lg shadow transition-all"
+            >
+              Sign Up
+            </button>
+
+            {/* Log In Dark Button from Screenshot */}
+            <button
+              onClick={() => {}}
+              className="w-full py-2 px-3 bg-[#302e2b] hover:bg-[#3b3834] text-white font-bold text-sm rounded-lg border border-[#3d3b38] transition-all"
+            >
+              Log In
+            </button>
+
+            {/* Help & Support + Language */}
+            <div className="pt-1 flex items-center justify-between text-[11px] text-[#9e9c98]">
+              <span className="flex items-center gap-1 hover:text-white cursor-pointer">
+                <HelpCircle size={14} /> Help
+              </span>
+              <span className="flex items-center gap-1 hover:text-white cursor-pointer">
+                <Globe size={14} /> English
+              </span>
             </div>
-            <div className="grid grid-cols-4 gap-1.5">
-              {themes.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => onThemeChange(t.id)}
-                  className={`text-xs py-1 rounded font-medium transition-all ${
-                    currentTheme === t.id
-                      ? 'bg-chess-green text-white font-bold'
-                      : 'bg-zinc-800 text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <button
+              onClick={toggleSound}
+              className="p-2 text-zinc-400 hover:text-white rounded"
+            >
+              {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            </button>
           </div>
         )}
-
-        <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between'} px-2 py-1`}>
-          <button
-            onClick={toggleSound}
-            className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-chess-card flex items-center gap-2"
-            title={soundOn ? 'Mute Sounds' : 'Unmute Sounds'}
-          >
-            {soundOn ? <Volume2 size={18} /> : <VolumeX size={18} className="text-red-400" />}
-            {!collapsed && <span className="text-xs">{soundOn ? 'Sound On' : 'Muted'}</span>}
-          </button>
-
-          {!collapsed && (
-            <NavLink
-              to="/settings"
-              className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-chess-card"
-              title="Settings"
-            >
-              <Settings size={18} />
-            </NavLink>
-          )}
-        </div>
       </div>
     </aside>
   );

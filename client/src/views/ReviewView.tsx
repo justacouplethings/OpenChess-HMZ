@@ -62,7 +62,7 @@ export const ReviewView: React.FC = () => {
   const [currentMoveIndex, setCurrentMoveIndex] = useState<number>(-1);
   const [boardFen, setBoardFen] = useState('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
 
-  // Trigger analysis
+  // Trigger analysis non-blockingly with progress
   const runReview = async (pgnToAnalyze: string) => {
     setIsAnalyzing(true);
     try {
@@ -72,12 +72,14 @@ export const ReviewView: React.FC = () => {
       setBoardFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
 
       if (result.summary.brilliantCount > 0) {
-        confetti({
-          particleCount: 80,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ['#1baca6', '#81b64c', '#f1c40f'],
-        });
+        try {
+          confetti({
+            particleCount: 80,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#1baca6', '#81b64c', '#f1c40f'],
+          });
+        } catch {}
       }
     } catch (e) {
       console.error('Review failed', e);
@@ -103,7 +105,9 @@ export const ReviewView: React.FC = () => {
       setBoardFen(move.fenAfter);
 
       if (move.classification === 'brilliant') {
-        confetti({ particleCount: 40, spread: 50, origin: { y: 0.5 } });
+        try {
+          confetti({ particleCount: 40, spread: 50, origin: { y: 0.5 } });
+        } catch {}
       }
     }
   };
