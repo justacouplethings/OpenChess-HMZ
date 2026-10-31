@@ -1,0 +1,15 @@
+# Node / Vite
+client/node_modules/
+client/dist/
+*.local
+
+# Go
+server/bin/
+*.exe
+*.test
+
+# Environment & IDE
+.env
+.DS_Store
+.idea/
+.vscode/
