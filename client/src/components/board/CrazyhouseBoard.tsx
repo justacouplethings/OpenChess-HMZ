@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Chess, Square } from 'chess.js';
-import { ChessPieceSVG, PieceIcon } from '../../assets/pieces';
+import { PieceIcon } from '../../assets/pieces';
 import { sound } from '../../utils/audio';
 
 export interface PiecePocketMap {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Chess, Square, Move } from 'chess.js';
 import { PieceIcon } from '../../assets/pieces';
 import { sound } from '../../utils/audio';
@@ -11,75 +11,102 @@ export interface ChessBoardProps {
   interactive?: boolean;
   lastMove?: { from: string; to: string } | null;
   checkSquare?: string | null;
-  premove?: { from: string; to: string } | null;
 }
 
-const THEME_COLORS: Record<string, { light: string; dark: string; lightText: string; darkText: string }> = {
-  green: { light: '#ebecd0', dark: '#739552', lightText: '#739552', darkText: '#ebecd0' },
-  wood: { light: '#f0d9b5', dark: '#b58863', lightText: '#b58863', darkText: '#f0d9b5' },
-  dark: { light: '#3b3e40', dark: '#2b2d2f', lightText: '#888888', darkText: '#aaaaaa' },
-  glass: { light: '#dee3e6', dark: '#8ca2ad', lightText: '#8ca2ad', darkText: '#dee3e6' },
-};
+interface AnimatedPiece {
+  id: string;
+  color: 'w' | 'b';
+  type: string;
+  square: Square;
+  isMoving?: boolean;
+}
 
 export const ChessBoard: React.FC<ChessBoardProps> = ({
   fen,
   onMove,
   orientation = 'w',
-  theme = 'green',
   interactive = true,
   lastMove = null,
   checkSquare = null,
-  premove = null,
 }) => {
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalTargets, setLegalTargets] = useState<Move[]>([]);
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null);
+
+  // Dragging state
   const [draggedSquare, setDraggedSquare] = useState<Square | null>(null);
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
 
-  const colors = THEME_COLORS[theme] || THEME_COLORS.green;
   const chess = new Chess(fen);
-
-  // Files and ranks
   const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-  const ranks = ['1', '2', '3', '4', '5', '6', '7', '8'];
+  const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
 
   const displayFiles = orientation === 'w' ? files : [...files].reverse();
-  const displayRanks = orientation === 'w' ? [...ranks].reverse() : ranks;
+  const displayRanks = orientation === 'w' ? ranks : [...ranks].reverse();
 
-  // Clear selections when FEN changes
+  // Clear selection on FEN change
   useEffect(() => {
     setSelectedSquare(null);
     setLegalTargets([]);
   }, [fen]);
 
+  // Compute piece position percentages (0% to 87.5%)
+  const getCoordinates = (square: Square) => {
+    const file = square[0];
+    const rank = square[1];
+    const fileIdx = displayFiles.indexOf(file);
+    const rankIdx = displayRanks.indexOf(rank);
+    return {
+      left: `${fileIdx * 12.5}%`,
+      top: `${rankIdx * 12.5}%`,
+    };
+  };
+
+  // Convert board pieces
+  const pieces: AnimatedPiece[] = [];
+  const board = chess.board();
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const p = board[r][c];
+      if (p) {
+        const file = String.fromCharCode(97 + c);
+        const rank = String(8 - r);
+        const sq = `${file}${rank}` as Square;
+        pieces.push({
+          id: `${sq}-${p.color}${p.type}`,
+          color: p.color,
+          type: p.type,
+          square: sq,
+          isMoving: lastMove?.to === sq,
+        });
+      }
+    }
+  }
+
   const handleSquareClick = (square: Square) => {
     if (!interactive) return;
 
-    // If square is one of legal targets, execute move
     if (selectedSquare) {
       const match = legalTargets.find((m) => m.to === square);
       if (match) {
-        executeMove(selectedSquare, square, match);
+        triggerMove(selectedSquare, square);
         return;
       }
     }
 
-    // Otherwise select piece on square if it belongs to active turn
     const piece = chess.get(square);
     if (piece) {
       setSelectedSquare(square);
-      const moves = chess.moves({ square, verbose: true });
-      setLegalTargets(moves);
+      setLegalTargets(chess.moves({ square, verbose: true }));
     } else {
       setSelectedSquare(null);
       setLegalTargets([]);
     }
   };
 
-  const executeMove = (from: Square, to: Square, moveCandidate?: Move) => {
+  const triggerMove = (from: Square, to: Square) => {
     const piece = chess.get(from);
-
-    // Check pawn promotion
     const isPromotion =
       piece &&
       piece.type === 'p' &&
@@ -90,107 +117,115 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       return;
     }
 
+    executeMoveDirect(from, to);
+  };
+
+  const executeMoveDirect = (from: Square, to: Square, promo?: string) => {
     const testChess = new Chess(fen);
     try {
-      const result = testChess.move({ from, to });
-      if (result) {
-        if (result.captured) {
-          sound.playCapture();
-        } else if (result.flags.includes('k') || result.flags.includes('q')) {
-          sound.playCastle();
-        } else {
-          sound.playMove();
-        }
+      const res = testChess.move({ from, to, promotion: promo });
+      if (res) {
+        if (res.captured) sound.playCapture();
+        else if (res.flags.includes('k') || res.flags.includes('q')) sound.playCastle();
+        else sound.playMove();
 
-        if (testChess.inCheck()) {
-          sound.playCheck();
-        }
+        if (testChess.inCheck()) sound.playCheck();
 
-        onMove?.(from, to, undefined, result.san);
+        onMove?.(from, to, promo, res.san);
       }
     } catch {
-      // Invalid move
+      // Invalid
     }
 
     setSelectedSquare(null);
     setLegalTargets([]);
-  };
-
-  const handlePromotionSelect = (promo: string) => {
-    if (!pendingPromotion) return;
-    const { from, to } = pendingPromotion;
-
-    const testChess = new Chess(fen);
-    try {
-      const result = testChess.move({ from, to, promotion: promo });
-      if (result) {
-        sound.playCapture();
-        onMove?.(from, to, promo, result.san);
-      }
-    } catch {
-      // error
-    }
-
     setPendingPromotion(null);
-    setSelectedSquare(null);
-    setLegalTargets([]);
   };
 
-  // Drag and drop handlers
-  const handleDragStart = (e: React.DragEvent, square: Square) => {
+  // Mouse / Touch Drag handlers
+  const handleMouseDown = (e: React.MouseEvent, square: Square) => {
     if (!interactive) return;
     const piece = chess.get(square);
     if (!piece) return;
-    setDraggedSquare(square);
+
     setSelectedSquare(square);
     setLegalTargets(chess.moves({ square, verbose: true }));
-    e.dataTransfer.setData('text/plain', square);
+    setDraggedSquare(square);
+
+    if (boardRef.current) {
+      const rect = boardRef.current.getBoundingClientRect();
+      setDragPos({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+    }
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!draggedSquare || !boardRef.current) return;
+    const rect = boardRef.current.getBoundingClientRect();
+    setDragPos({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
   };
 
-  const handleDrop = (e: React.DragEvent, toSquare: Square) => {
-    e.preventDefault();
-    const fromSquare = (e.dataTransfer.getData('text/plain') || draggedSquare) as Square;
-    if (fromSquare && fromSquare !== toSquare) {
-      const match = legalTargets.find((m) => m.to === toSquare);
-      if (match) {
-        executeMove(fromSquare, toSquare, match);
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (!draggedSquare || !boardRef.current) return;
+    const rect = boardRef.current.getBoundingClientRect();
+    const squareWidth = rect.width / 8;
+    const squareHeight = rect.height / 8;
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const fileIdx = Math.floor(x / squareWidth);
+    const rankIdx = Math.floor(y / squareHeight);
+
+    if (fileIdx >= 0 && fileIdx < 8 && rankIdx >= 0 && rankIdx < 8) {
+      const targetSquare = `${displayFiles[fileIdx]}${displayRanks[rankIdx]}` as Square;
+      if (targetSquare !== draggedSquare) {
+        const match = legalTargets.find((m) => m.to === targetSquare);
+        if (match) {
+          triggerMove(draggedSquare, targetSquare);
+        }
       }
     }
+
     setDraggedSquare(null);
+    setDragPos(null);
   };
 
   return (
-    <div className="relative select-none aspect-square w-full max-w-[620px] rounded shadow-2xl overflow-hidden border-2 border-zinc-700/50">
+    <div
+      ref={boardRef}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      className="relative select-none aspect-square w-full max-w-[620px] rounded-lg shadow-2xl overflow-hidden border-4 border-[#262421]"
+    >
+      {/* 8x8 Board Background Grid */}
       <div className="grid grid-cols-8 grid-rows-8 w-full h-full">
         {displayRanks.map((rank, rIdx) =>
           displayFiles.map((file, fIdx) => {
-            const square = `${file}${rank}` as Square;
-            const piece = chess.get(square);
+            const sq = `${file}${rank}` as Square;
             const isLight = (file.charCodeAt(0) - 97 + parseInt(rank)) % 2 !== 0;
-            const squareBg = isLight ? colors.light : colors.dark;
+            const bg = isLight ? '#ebecd0' : '#739552';
 
-            // Highlight conditions
-            const isSelected = selectedSquare === square;
-            const isLastMove = lastMove && (lastMove.from === square || lastMove.to === square);
-            const isPremove = premove && (premove.from === square || premove.to === square);
-            const isCheck = checkSquare === square || (piece?.type === 'k' && piece.color === chess.turn() && chess.inCheck());
-
-            // Legal target check
-            const targetMove = legalTargets.find((m) => m.to === square);
-            const isCaptureTarget = targetMove && (targetMove.captured || chess.get(square));
+            const isSelected = selectedSquare === sq;
+            const isLastMove = lastMove && (lastMove.from === sq || lastMove.to === sq);
+            const isTarget = legalTargets.some((m) => m.to === sq);
+            const isCapture = isTarget && chess.get(sq);
+            const isKingInCheck =
+              checkSquare === sq ||
+              (chess.inCheck() && chess.get(sq)?.type === 'k' && chess.get(sq)?.color === chess.turn());
 
             return (
               <div
-                key={square}
-                onClick={() => handleSquareClick(square)}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, square)}
-                className="relative w-full h-full flex items-center justify-center cursor-pointer transition-colors"
-                style={{ backgroundColor: squareBg }}
+                key={sq}
+                onClick={() => handleSquareClick(sq)}
+                onMouseDown={(e) => handleMouseDown(e, sq)}
+                className="relative w-full h-full flex items-center justify-center cursor-pointer"
+                style={{ backgroundColor: bg }}
               >
                 {/* Last move highlight */}
                 {isLastMove && (
@@ -202,54 +237,37 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                   <div className="absolute inset-0 bg-[#f7f769] opacity-60 pointer-events-none" />
                 )}
 
-                {/* Pre-move highlight */}
-                {isPremove && (
-                  <div className="absolute inset-0 bg-red-500 opacity-40 pointer-events-none" />
-                )}
-
-                {/* In Check highlight */}
-                {isCheck && (
+                {/* Check pulse */}
+                {isKingInCheck && (
                   <div className="absolute inset-0 bg-red-600/75 rounded-full blur-sm pointer-events-none" />
                 )}
 
-                {/* Coordinates */}
+                {/* Rank label on left column */}
                 {fIdx === 0 && (
                   <span
-                    className="absolute top-0.5 left-1 text-[10px] font-bold pointer-events-none select-none leading-none"
-                    style={{ color: isLight ? colors.lightText : colors.darkText }}
+                    className="absolute top-0.5 left-1 text-[11px] font-black pointer-events-none select-none"
+                    style={{ color: isLight ? '#739552' : '#ebecd0' }}
                   >
                     {rank}
                   </span>
                 )}
+
+                {/* File label on bottom row */}
                 {rIdx === 7 && (
                   <span
-                    className="absolute bottom-0.5 right-1 text-[10px] font-bold pointer-events-none select-none leading-none"
-                    style={{ color: isLight ? colors.lightText : colors.darkText }}
+                    className="absolute bottom-0.5 right-1 text-[11px] font-black pointer-events-none select-none"
+                    style={{ color: isLight ? '#739552' : '#ebecd0' }}
                   >
                     {file}
                   </span>
                 )}
 
-                {/* Piece Icon */}
-                {piece && (
-                  <div
-                    draggable={interactive}
-                    onDragStart={(e) => handleDragStart(e, square)}
-                    className="w-[84%] h-[84%] flex items-center justify-center z-10 hover:scale-105 active:scale-95 transition-transform"
-                  >
-                    <PieceIcon
-                      code={`${piece.color}${piece.type}`}
-                      className="w-full h-full drop-shadow"
-                    />
-                  </div>
-                )}
-
                 {/* Legal Move Indicators */}
-                {targetMove && !isCaptureTarget && (
-                  <div className="absolute w-3.5 h-3.5 rounded-full bg-black/20 pointer-events-none z-20" />
+                {isTarget && !isCapture && (
+                  <div className="w-3.5 h-3.5 rounded-full bg-black/20 pointer-events-none z-10" />
                 )}
-                {isCaptureTarget && (
-                  <div className="absolute inset-1 rounded-full border-4 border-black/25 pointer-events-none z-20" />
+                {isCapture && (
+                  <div className="absolute inset-1 rounded-full border-4 border-black/25 pointer-events-none z-10" />
                 )}
               </div>
             );
@@ -257,23 +275,78 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
         )}
       </div>
 
+      {/* Animated Pieces Layer */}
+      <div className="absolute inset-0 pointer-events-none">
+        {pieces.map((p) => {
+          const isDragged = draggedSquare === p.square;
+          if (isDragged) return null; // Rendered in drag overlay
+
+          const coords = getCoordinates(p.square);
+
+          return (
+            <div
+              key={p.square}
+              className={`absolute w-[12.5%] h-[12.5%] flex items-center justify-center p-1 transition-all duration-200 ease-out ${
+                p.isMoving ? 'z-20 scale-102 drop-shadow-xl' : 'z-10'
+              }`}
+              style={{
+                left: coords.left,
+                top: coords.top,
+                transitionProperty: 'left, top, transform',
+                transitionDuration: '220ms',
+                transitionTimingFunction: 'cubic-bezier(0.2, 0, 0.2, 1)',
+              }}
+            >
+              <PieceIcon
+                code={`${p.color}${p.type.toUpperCase()}`}
+                className="w-full h-full drop-shadow-md"
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Dragging Piece Floating Overlay */}
+      {draggedSquare && dragPos && (
+        <div
+          className="absolute w-[12.5%] h-[12.5%] pointer-events-none z-50 transform -translate-x-1/2 -translate-y-1/2 scale-110 drop-shadow-2xl transition-transform"
+          style={{
+            left: `${dragPos.x}px`,
+            top: `${dragPos.y}px`,
+          }}
+        >
+          {chess.get(draggedSquare) && (
+            <PieceIcon
+              code={`${chess.get(draggedSquare)?.color}${chess.get(draggedSquare)?.type.toUpperCase()}`}
+              className="w-full h-full"
+            />
+          )}
+        </div>
+      )}
+
       {/* Pawn Promotion Modal */}
       {pendingPromotion && (
         <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-chess-card border border-zinc-700 rounded-xl p-4 shadow-2xl flex flex-col items-center">
-            <h4 className="text-sm font-bold text-zinc-300 mb-3 uppercase tracking-wider">
-              Choose Promotion
+          <div className="bg-[#262421] border border-[#3d3b38] rounded-xl p-4 shadow-2xl flex flex-col items-center">
+            <h4 className="text-sm font-black text-white mb-3 uppercase tracking-wider">
+              Choose Promotion Piece
             </h4>
             <div className="flex gap-2">
-              {['q', 'r', 'b', 'n'].map((p) => (
+              {['Q', 'R', 'B', 'N'].map((promoType) => (
                 <button
-                  key={p}
-                  onClick={() => handlePromotionSelect(p)}
-                  className="w-14 h-14 bg-zinc-800 hover:bg-chess-green/30 border border-zinc-700 hover:border-chess-green rounded-lg flex items-center justify-center transition-all p-1"
+                  key={promoType}
+                  onClick={() =>
+                    executeMoveDirect(
+                      pendingPromotion.from,
+                      pendingPromotion.to,
+                      promoType.toLowerCase()
+                    )
+                  }
+                  className="w-14 h-14 bg-[#302e2b] hover:bg-[#81b64c]/30 border border-[#3d3b38] hover:border-[#81b64c] rounded-xl flex items-center justify-center p-1 transition-all"
                 >
                   <PieceIcon
-                    code={`${chess.turn() === 'w' ? 'w' : 'b'}${p}`}
-                    size={44}
+                    code={`${chess.turn() === 'w' ? 'w' : 'b'}${promoType}`}
+                    size={42}
                   />
                 </button>
               ))}
